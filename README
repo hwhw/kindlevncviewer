@@ -1,0 +1,7 @@
+This is a VNC viewer for e-book devices
+Copyright (c) 2011 Hans-Werner Hilse <hilse@web.de>
+
+It works on the framebuffer, using the einkfb API from e-ink devices (einkfb.h) to do screen refreshs.
+This is based on LibVNCclient (part of the LibVNCserver project, see http://libvncserver.sourceforge.net/.
+
+This software is licensed under the GPLv2 (see file COPYING).
