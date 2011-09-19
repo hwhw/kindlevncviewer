@@ -22,7 +22,7 @@ int refresh_pending = 0;
 int refresh_full_counter = 0;
 int refresh_partial_counter = 0;
 
-#define DELAY_REFRESH_BY_USECS 250000 // 250 msec
+#define DELAY_REFRESH_BY_USECS 150000 // 150 msec
 #define FORCE_PARTIAL_REFRESH_FOR_X_256TH_PXUP 512
 #define DO_FULL_UPDATES 0
 #define FULL_REFRESH_FOR_X_256TH_PXUP 256
@@ -109,14 +109,18 @@ void einkUpdate(fx_type which_fx) {
 
 void updateFromRFB(rfbClient* client, int x, int y, int w, int h) {
 	/*fprintf(stderr,"Received an update for %d,%d,%d,%d.\n",x,y,w,h);*/
-	rfb16ToFramebuffer4(client, x, y, w, h);
-	if(rx1 > x) rx1 = x;
-	if(rx2 < x+w-1) rx2 = x+w-1;
-	if(ry1 > y) ry1 = y;
-	if(ry2 < y+h-1) ry2 = y+h-1;
+	int cx = (x > vinfo.xres) ? vinfo.xres - 1 : x;
+	int cy = (y > vinfo.yres) ? vinfo.yres - 1 : y;
+	int cw = (x+w > vinfo.xres) ? vinfo.xres - (x+1) : w;
+	int ch = (y+h > vinfo.yres) ? vinfo.yres - (y+1) : h;
+	rfb16ToFramebuffer4(client, cx, cy, cw, ch);
+	if(rx1 > cx) rx1 = cx;
+	if(rx2 < cx+cw-1) rx2 = cx+cw-1;
+	if(ry1 > cy) ry1 = cy;
+	if(ry2 < cy+ch-1) ry2 = cy+ch-1;
 	refresh_pending = 1;
-	refresh_full_counter += w*h;
-	refresh_partial_counter += w*h;
+	refresh_full_counter += cw*ch;
+	refresh_partial_counter += cw*ch;
 }
 
 int main(int argc, char **argv) {
