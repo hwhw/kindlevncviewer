@@ -5,6 +5,13 @@ It works on the framebuffer, using the einkfb API from e-ink devices (einkfb.h) 
 This is based on LibVNCclient (part of the LibVNCserver project, see http://libvncserver.sourceforge.net/.
 
 
+Configuration:
+--------------
+
+There are a few hard-compiled config items. See the #define statements in kindlevncviewer.c
+Most notable is the "endless reconnect" feature. It will try to make a new connection to the VNC server if the old connection died. This seems to be needed on the author's Kindle DX as the device will kill TCP connections after a while.
+
+
 Building:
 ---------
 
