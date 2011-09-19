@@ -4,4 +4,40 @@ Copyright (c) 2011 Hans-Werner Hilse <hilse@web.de>
 It works on the framebuffer, using the einkfb API from e-ink devices (einkfb.h) to do screen refreshs.
 This is based on LibVNCclient (part of the LibVNCserver project, see http://libvncserver.sourceforge.net/.
 
+
+Building:
+---------
+
+It is suggested to compile LibVNCclient in a very minimal version. Personally, I use the following call to configure:
+
+    PKG_CONFIG_PATH=/home/hw/x-tools/arm-unknown-linux-gnueabi/arm-unknown-linux-gnueabi/sys-root/usr/lib/pkgconfig/ \
+    ./configure --without-gcrypt --without-client-gcrypt \
+                --without-gnutls --without-client-tls \
+                --without-ipv6 --host=arm-unknown-linux-gnueabi \
+                 --host=arm-unknown-linux-gnueabi \
+                --prefix=/home/hw/x-tools/arm-unknown-linux-gnueabi/arm-unknown-linux-gnueabi/sys-root/usr/
+
+LibVNCclient will have dependencies on libjpeg and libz in this case.
+Of course, you will have to alter that to read path names that point to your own cross toolchain.
+
+In order to build kindlevncviewer, you should just edit the Makefile, adapt it to your toolchain name and path, and then just issue
+
+    make
+
+and it should build an executable.
+
+
+Running:
+--------
+
+You need to copy the program and the libraries it needs (you can just try running it without and it will show you which libraries are missing) onto your ebook device. Then call (from a launcher app or a shell)
+
+    kindlevncviewer 192.168.2.1:1
+
+(you will need to put in the correct server address or name and screen number).
+
+
+Licensing/Copying:
+------------------
+
 This software is licensed under the GPLv2 (see file COPYING).
