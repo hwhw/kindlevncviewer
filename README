@@ -5,6 +5,10 @@ It works on the framebuffer, using the einkfb API from e-ink devices (einkfb.h) 
 This is based on LibVNCclient (part of the LibVNCserver project, see http://libvncserver.sourceforge.net/.
 
 
+There's a discussion thread at
+http://www.mobileread.com/forums/showthread.php?t=150434
+
+
 Configuration:
 --------------
 
