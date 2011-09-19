@@ -39,10 +39,12 @@ Running:
 
 You need to copy the program and the libraries it needs (you can just try running it without and it will show you which libraries are missing) onto your ebook device. Then call (from a launcher app or a shell)
 
-    kindlevncviewer 192.168.2.1:1
+    LD_LIBRARY_PATH=. kindlevncviewer 192.168.2.1:1
 
 (you will need to put in the correct server address or name and screen number).
 
+With the source code, a shell script is provided that will do the setup of LD_LIBRARY_PATH properly (kvncviewer.sh).
+Also, a config file for the "launchpad" application on Kindle is provided which makes use of the shell script.
 
 Licensing/Copying:
 ------------------
