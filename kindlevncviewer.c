@@ -1,6 +1,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 #include <errno.h>
 #include <sys/ioctl.h>
@@ -21,12 +22,24 @@ int rx1, rx2, ry1, ry2; // refresh rectangle
 int refresh_pending = 0;
 int refresh_full_counter = 0;
 int refresh_partial_counter = 0;
+int running = 1;
+
+char *password = NULL;
 
 #define DELAY_REFRESH_BY_USECS 150000 // 150 msec
 #define FORCE_PARTIAL_REFRESH_FOR_X_256TH_PXUP 512
 #define DO_FULL_UPDATES 0
 #define FULL_REFRESH_FOR_X_256TH_PXUP 256
 #define ENDLESS_RECONNECT 1
+
+char* passwordCallback(rfbClient* client) {
+	if(password == NULL) {
+		running = -1;
+		fprintf(stderr,"got request for password, but no password was given on command line.\n");
+		return strdup("");
+	}
+	return strdup(password);
+}
 
 void rfb16ToFramebuffer4(rfbClient* client, int x, int y, int w, int h) {
 	int cx, cy;
@@ -127,6 +140,7 @@ int main(int argc, char **argv) {
 	rfbClient* cl;
 	int refresh_partial_force_at;
 	int refresh_full_at;
+	int i;
 
 	/* open framebuffer */
 	fd = open("/dev/fb0", O_RDWR);
@@ -177,9 +191,36 @@ int main(int argc, char **argv) {
 	}
 	memset(fbdata, 0, finfo.line_length*vinfo.yres);
 
-	while(1) {
+	/* option parsing, but note that libvncclient does its own parsing, too */
+	for(i=1; i < argc; i++) {
+		if(strcmp("-password", argv[i]) == 0 && (i+1) < argc) {
+			/* password given on command line */
+			password = strdup(argv[i+1]);
+			i++;
+		} else if(strcmp("-readpassword", argv[i]) == 0) {
+			char pwdstring[256];
+			/* read password from stdin */
+			password = fgets(pwdstring, sizeof(pwdstring), stdin);
+			if(password == NULL) {
+				fprintf(stderr, "error when reading password from stdin.\n");
+				running = -1;
+			} else {
+				if(password[strlen(password)-1] == '\n')
+					password[strlen(password)-1] = '\0';
+				if(strlen(password) == 0) {
+					fprintf(stderr, "got zero-length password from stdin.\n");
+					running = -1;
+				} else {
+					password = strdup(pwdstring);
+				}
+			}
+		}
+	}
+
+	while(running > 0) {
 		/* initialize rfbClient */
 		cl = rfbGetClient(5,3,2); // 16bpp
+		cl->GetPassword = passwordCallback;
 		cl->canHandleNewFBSize = FALSE;
 		cl->GotFrameBufferUpdate = updateFromRFB;
 		cl->listenPort = LISTEN_PORT_OFFSET;
@@ -235,6 +276,6 @@ reconnect:
 quit:
 	close(fd);
 
-	return 0;
+	return -running;
 }
 
