@@ -50,6 +50,20 @@ You need to copy the program and the libraries it needs (you can just try runnin
 With the source code, a shell script is provided that will do the setup of LD_LIBRARY_PATH properly (kvncviewer.sh).
 Also, a config file for the "launchpad" application on Kindle is provided which makes use of the shell script.
 
+You can pass parameters to the executable, most notably a password.
+
+These are the options:
+
+-password <passwordstring>
+
+	Allows to specify a password for password based authentification.  Note that this might show up in process lists of your device.  Typically, for ebook readers this should be of great concern, since no other users will be on the "machine" at the same time.
+
+-readpassword
+
+	This is slightly more secure as it will read the password from standard input, so it will not show in process lists.
+
+Also, libvncclient will allow for some further options, but the author of this viewer did not yet find the time to fetch their syntax from available documentation, sorry. There are options for selecting VNC encodings, setting compression and to do scaling (though it's unclear if that would actually work).
+
 Licensing/Copying:
 ------------------
 
