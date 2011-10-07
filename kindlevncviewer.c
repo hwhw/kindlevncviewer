@@ -17,6 +17,10 @@
 #include <linux/einkfb.h>
 #include <linux/input.h>
 
+#include <lua.h>
+#include <lualib.h>
+#include <lauxlib.h>
+
 int fd = -1;
 void *fbdata = NULL;
 struct fb_fix_screeninfo finfo;
@@ -31,6 +35,9 @@ int inputfds[] = {-1, -1, -1};
 char* inputdevices[] = { "/dev/input/event0", "/dev/input/event1", "/dev/input/event2" };
 
 char *password = NULL;
+char *config = NULL;
+
+lua_State *L = NULL;
 
 #define DELAY_REFRESH_BY_USECS 150000 // 150 msec
 #define FORCE_PARTIAL_REFRESH_FOR_X_256TH_PXUP 512
@@ -142,14 +149,24 @@ void updateFromRFB(rfbClient* client, int x, int y, int w, int h) {
 	refresh_partial_counter += cw*ch;
 }
 
-void handleInput(int fd) {
+void handleInput(int chan, int fd) {
 	struct input_event input;
 	int n;
 	rfbClientLog("event on fd #%d\n", fd);
 	n = read(fd, &input, sizeof(struct input_event));
 	if(n < sizeof(struct input_event))
 		return;
-	rfbClientLog("Got key event, code=%d\n", input.code);
+
+	lua_getglobal(L, "handleInput");
+	if(lua_isfunction(L, -1)) {
+		lua_pushinteger(L, chan);
+		lua_pushinteger(L, (int) input.type);
+		lua_pushinteger(L, (int) input.code);
+		lua_pushinteger(L, (int) input.value);
+		if(lua_pcall(L, 4, 0, 0)) {
+			rfbClientLog("lua error: %s\n", lua_tostring(L, -1));
+		}
+	}
 }
 
 /* adapted from libVNCclient, extended by input device file descriptors: */
@@ -170,11 +187,13 @@ int myWaitForMessage(rfbClient* client, unsigned int usecs)
 
 	FD_ZERO(&fds);
 	FD_SET(client->sock, &fds);
-	for(i=0; i<3; i++) {
-		if(inputfds[i] != -1)
-			FD_SET(inputfds[i], &fds);
-		if(inputfds[i] + 1 > nfds)
-			nfds = inputfds[i] + 1;
+	if(L) {
+		for(i=0; i<3; i++) {
+			if(inputfds[i] != -1)
+				FD_SET(inputfds[i], &fds);
+			if(inputfds[i] + 1 > nfds)
+				nfds = inputfds[i] + 1;
+		}
 	}
 
 	num = select(nfds, &fds, NULL, NULL, &timeout);
@@ -183,9 +202,11 @@ int myWaitForMessage(rfbClient* client, unsigned int usecs)
 		return num;
 	}
 
-	for(i=0; i<3; i++) {
-		if(inputfds[i] != -1 && FD_ISSET(inputfds[i], &fds)) {
-			handleInput(inputfds[i]);
+	if(L) {
+		for(i=0; i<3; i++) {
+			if(inputfds[i] != -1 && FD_ISSET(inputfds[i], &fds)) {
+				handleInput(i, inputfds[i]);
+			}
 		}
 	}
 
@@ -293,8 +314,26 @@ int main(int argc, char **argv) {
 					password = strdup(pwdstring);
 				}
 			}
+		} else if(strcmp("-config", argv[i]) == 0 && (i+1) < argc) {
+			/* config file */
+			config = strdup(argv[i+1]);
+			i++;
 		}
 	}
+
+	if(config != NULL) {
+		/* set up Lua state */
+		L = lua_open();
+		if(L) {
+			luaL_openlibs(L);
+			if(luaL_dofile(L, config)) {
+				fprintf(stderr, "lua config error: %s", lua_tostring(L, -1));
+				lua_close(L);
+				L=NULL;
+			}
+		}
+	}
+
 
 	openInputDevices();
 
@@ -313,7 +352,7 @@ int main(int argc, char **argv) {
 		refresh_full_at = ((cl->width*cl->height) >> 8) * FULL_REFRESH_FOR_X_256TH_PXUP;
 		refresh_partial_force_at = ((cl->width*cl->height) >> 8) * FORCE_PARTIAL_REFRESH_FOR_X_256TH_PXUP;
 
-		while (1) {
+		while (running > 0) {
 			int n;
 
 			rx1 = 1 << 15;
@@ -357,6 +396,7 @@ reconnect:
 quit:
 	closeInputDevices();
 	close(fd);
+	if(L) lua_close(L);
 
 	return -running;
 }
