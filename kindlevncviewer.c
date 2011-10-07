@@ -9,10 +9,13 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <stdio.h>
+#include <stropts.h>
+#include <sys/select.h>
 #include <rfb/rfbclient.h>
 
 #include <linux/fb.h>
 #include <linux/einkfb.h>
+#include <linux/input.h>
 
 int fd = -1;
 void *fbdata = NULL;
@@ -23,6 +26,9 @@ int refresh_pending = 0;
 int refresh_full_counter = 0;
 int refresh_partial_counter = 0;
 int running = 1;
+
+int inputfds[] = {-1, -1, -1};
+char* inputdevices[] = { "/dev/input/event0", "/dev/input/event1", "/dev/input/event2" };
 
 char *password = NULL;
 
@@ -136,6 +142,79 @@ void updateFromRFB(rfbClient* client, int x, int y, int w, int h) {
 	refresh_partial_counter += cw*ch;
 }
 
+void handleInput(int fd) {
+	struct input_event input;
+	int n;
+	rfbClientLog("event on fd #%d\n", fd);
+	n = read(fd, &input, sizeof(struct input_event));
+	if(n < sizeof(struct input_event))
+		return;
+	rfbClientLog("Got key event, code=%d\n", input.code);
+}
+
+/* adapted from libVNCclient, extended by input device file descriptors: */
+int myWaitForMessage(rfbClient* client, unsigned int usecs)
+{
+	fd_set fds;
+	struct timeval timeout;
+	int i, num, nfds;
+
+	if(client->serverPort == -1)
+		/* playing back vncrec file */
+		return 1;
+
+	timeout.tv_sec = (usecs/1000000);
+	timeout.tv_usec = (usecs%1000000);
+
+	nfds = client->sock + 1;
+
+	FD_ZERO(&fds);
+	FD_SET(client->sock, &fds);
+	for(i=0; i<3; i++) {
+		if(inputfds[i] != -1)
+			FD_SET(inputfds[i], &fds);
+		if(inputfds[i] + 1 > nfds)
+			nfds = inputfds[i] + 1;
+	}
+
+	num = select(nfds, &fds, NULL, NULL, &timeout);
+	if(num < 0) {
+		rfbClientLog("Waiting for message failed: %d (%s)\n", errno, strerror(errno));
+		return num;
+	}
+
+	for(i=0; i<3; i++) {
+		if(inputfds[i] != -1 && FD_ISSET(inputfds[i], &fds)) {
+			handleInput(inputfds[i]);
+		}
+	}
+
+	if(FD_ISSET(client->sock, &fds)) {
+		return num;
+	}
+
+	return 0;
+}
+
+void openInputDevices() {
+	int i;
+	for(i=0; i<3; i++) {
+		inputfds[i] = open(inputdevices[i], O_RDONLY | O_NONBLOCK, 0);
+		if(inputfds[i] != -1)
+			ioctl(inputfds[i], EVIOCGRAB, 1);
+	}
+}
+
+void closeInputDevices() {
+	int i;
+	for(i=0; i<3; i++) {
+		if(inputfds[i] != -1) {
+			ioctl(inputfds[i], EVIOCGRAB, 0);
+			close(i);
+		}
+	}
+}
+
 int main(int argc, char **argv) {
 	rfbClient* cl;
 	int refresh_partial_force_at;
@@ -217,6 +296,8 @@ int main(int argc, char **argv) {
 		}
 	}
 
+	openInputDevices();
+
 	while(running > 0) {
 		/* initialize rfbClient */
 		cl = rfbGetClient(5,3,2); // 16bpp
@@ -240,7 +321,7 @@ int main(int argc, char **argv) {
 			rx2 = 0;
 			ry2 = 0;
 #define LONGLOOP 5*60*1000*1000
-			n = WaitForMessage(cl,LONGLOOP);
+			n = myWaitForMessage(cl,LONGLOOP);
 			if (n<0) {
 				fprintf(stderr,"error while waiting for RFB message.\n");
 				if(ENDLESS_RECONNECT) goto reconnect;
@@ -252,7 +333,7 @@ int main(int argc, char **argv) {
 					if(ENDLESS_RECONNECT) goto reconnect;
 					goto quit;
 				}
-				n = WaitForMessage(cl,DELAY_REFRESH_BY_USECS);
+				n = myWaitForMessage(cl,DELAY_REFRESH_BY_USECS);
 				if (n<0) {
 					fprintf(stderr,"error while waiting for RFB message.\n");
 					if(ENDLESS_RECONNECT) goto reconnect;
@@ -274,6 +355,7 @@ reconnect:
 		rfbClientCleanup(cl);
 	}
 quit:
+	closeInputDevices();
 	close(fd);
 
 	return -running;
