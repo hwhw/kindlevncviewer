@@ -38,6 +38,7 @@ char *password = NULL;
 char *config = NULL;
 
 lua_State *L = NULL;
+rfbClient* client;
 
 #define DELAY_REFRESH_BY_USECS 150000 // 150 msec
 #define FORCE_PARTIAL_REFRESH_FOR_X_256TH_PXUP 512
@@ -45,7 +46,7 @@ lua_State *L = NULL;
 #define FULL_REFRESH_FOR_X_256TH_PXUP 256
 #define ENDLESS_RECONNECT 1
 
-char* passwordCallback(rfbClient* client) {
+char* passwordCallback() {
 	if(password == NULL) {
 		running = -1;
 		fprintf(stderr,"got request for password, but no password was given on command line.\n");
@@ -54,7 +55,7 @@ char* passwordCallback(rfbClient* client) {
 	return strdup(password);
 }
 
-void rfb16ToFramebuffer4(rfbClient* client, int x, int y, int w, int h) {
+void rfb16ToFramebuffer4(int x, int y, int w, int h) {
 	int cx, cy;
 	int len = (w + (x & 1)) >> 1;
 
@@ -139,7 +140,7 @@ void updateFromRFB(rfbClient* client, int x, int y, int w, int h) {
 	int cy = (y > vinfo.yres) ? vinfo.yres - 1 : y;
 	int cw = (x+w > vinfo.xres) ? vinfo.xres - (x+1) : w;
 	int ch = (y+h > vinfo.yres) ? vinfo.yres - (y+1) : h;
-	rfb16ToFramebuffer4(client, cx, cy, cw, ch);
+	rfb16ToFramebuffer4(cx, cy, cw, ch);
 	if(rx1 > cx) rx1 = cx;
 	if(rx2 < cx+cw-1) rx2 = cx+cw-1;
 	if(ry1 > cy) ry1 = cy;
@@ -169,8 +170,32 @@ void handleInput(int chan, int fd) {
 	}
 }
 
+int luaSendKeyEvent(lua_State *L) {
+	int key = luaL_checkint(L, 1);
+	int pressed = lua_toboolean(L, 2);
+
+	SendKeyEvent(client, (uint32_t) key, pressed);
+
+	return 0;
+}
+
+int luaSendPointerEvent(lua_State *L) {
+	int x = luaL_checkint(L, 1);
+	int y = luaL_checkint(L, 2);
+	int buttonMask = luaL_checkint(L, 3);
+
+	SendPointerEvent(client, x, y, buttonMask);
+
+	return 0;
+}
+
+int luaQuit(lua_State *L) {
+	running = 0 - luaL_optint(L, 1, 0);
+	return 0;
+}
+
 /* adapted from libVNCclient, extended by input device file descriptors: */
-int myWaitForMessage(rfbClient* client, unsigned int usecs)
+int myWaitForMessage(unsigned int usecs)
 {
 	fd_set fds;
 	struct timeval timeout;
@@ -237,7 +262,6 @@ void closeInputDevices() {
 }
 
 int main(int argc, char **argv) {
-	rfbClient* cl;
 	int refresh_partial_force_at;
 	int refresh_full_at;
 	int i;
@@ -326,6 +350,12 @@ int main(int argc, char **argv) {
 		L = lua_open();
 		if(L) {
 			luaL_openlibs(L);
+			lua_pushcfunction(L, luaSendKeyEvent);
+			lua_setglobal(L, "SendKeyEvent");
+			lua_pushcfunction(L, luaSendPointerEvent);
+			lua_setglobal(L, "SendPointerEvent");
+			lua_pushcfunction(L, luaQuit);
+			lua_setglobal(L, "Quit");
 			if(luaL_dofile(L, config)) {
 				fprintf(stderr, "lua config error: %s", lua_tostring(L, -1));
 				lua_close(L);
@@ -339,18 +369,25 @@ int main(int argc, char **argv) {
 
 	while(running > 0) {
 		/* initialize rfbClient */
-		cl = rfbGetClient(5,3,2); // 16bpp
-		cl->GetPassword = passwordCallback;
-		cl->canHandleNewFBSize = FALSE;
-		cl->GotFrameBufferUpdate = updateFromRFB;
-		cl->listenPort = LISTEN_PORT_OFFSET;
+		client = rfbGetClient(5,3,2); // 16bpp
+		client->GetPassword = passwordCallback;
+		client->canHandleNewFBSize = FALSE;
+		client->GotFrameBufferUpdate = updateFromRFB;
+		client->listenPort = LISTEN_PORT_OFFSET;
 
 		/* connect */
-		if (!rfbInitClient(cl,&argc,argv)) {
+		if (!rfbInitClient(client,&argc,argv)) {
 			goto quit;
 		}
-		refresh_full_at = ((cl->width*cl->height) >> 8) * FULL_REFRESH_FOR_X_256TH_PXUP;
-		refresh_partial_force_at = ((cl->width*cl->height) >> 8) * FORCE_PARTIAL_REFRESH_FOR_X_256TH_PXUP;
+		refresh_full_at = ((client->width*client->height) >> 8) * FULL_REFRESH_FOR_X_256TH_PXUP;
+		refresh_partial_force_at = ((client->width*client->height) >> 8) * FORCE_PARTIAL_REFRESH_FOR_X_256TH_PXUP;
+
+		if(L) {
+			lua_pushinteger(L, client->width);
+			lua_setglobal(L, "client_width");
+			lua_pushinteger(L, client->height);
+			lua_setglobal(L, "client_height");
+		}
 
 		while (running > 0) {
 			int n;
@@ -360,19 +397,19 @@ int main(int argc, char **argv) {
 			rx2 = 0;
 			ry2 = 0;
 #define LONGLOOP 5*60*1000*1000
-			n = myWaitForMessage(cl,LONGLOOP);
+			n = myWaitForMessage(LONGLOOP);
 			if (n<0) {
 				fprintf(stderr,"error while waiting for RFB message.\n");
 				if(ENDLESS_RECONNECT) goto reconnect;
 				goto quit;
 			}
 			while(n > 0) {
-				if(!HandleRFBServerMessage(cl)) {
+				if(!HandleRFBServerMessage(client)) {
 					fprintf(stderr,"error while handling RFB message.\n");
 					if(ENDLESS_RECONNECT) goto reconnect;
 					goto quit;
 				}
-				n = myWaitForMessage(cl,DELAY_REFRESH_BY_USECS);
+				n = myWaitForMessage(DELAY_REFRESH_BY_USECS);
 				if (n<0) {
 					fprintf(stderr,"error while waiting for RFB message.\n");
 					if(ENDLESS_RECONNECT) goto reconnect;
@@ -391,7 +428,7 @@ int main(int argc, char **argv) {
 			}
 		}
 reconnect:
-		rfbClientCleanup(cl);
+		rfbClientCleanup(client);
 	}
 quit:
 	closeInputDevices();
