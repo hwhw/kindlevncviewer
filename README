@@ -15,6 +15,8 @@ Configuration:
 There are a few hard-compiled config items. See the #define statements in kindlevncviewer.c
 Most notable is the "endless reconnect" feature. It will try to make a new connection to the VNC server if the old connection died. This seems to be needed on the author's Kindle DX as the device will kill TCP connections after a while.
 
+Now it supports input handling using a Lua config file (config.lua). Edit this to create different keyboard layouts or similar things.
+
 
 Building:
 ---------
@@ -43,7 +45,7 @@ Running:
 
 You need to copy the program and the libraries it needs (you can just try running it without and it will show you which libraries are missing) onto your ebook device. Then call (from a launcher app or a shell)
 
-    LD_LIBRARY_PATH=. kindlevncviewer 192.168.2.1:1
+    LD_LIBRARY_PATH=. kindlevncviewer -config config.lua 192.168.2.1:1
 
 (you will need to put in the correct server address or name and screen number).
 
@@ -61,6 +63,10 @@ These are the options:
 -readpassword
 
 	This is slightly more secure as it will read the password from standard input, so it will not show in process lists.
+
+-config <file>
+
+	Parses Lua configuration file
 
 Also, libvncclient will allow for some further options, but the author of this viewer did not yet find the time to fetch their syntax from available documentation, sorry. There are options for selecting VNC encodings, setting compression and to do scaling (though it's unclear if that would actually work).
 
