@@ -7,5 +7,5 @@ export LD_LIBRARY_PATH
 ## info on kaffeine & download:
 ## http://www.mobileread.com/forums/showthread.php?t=151207
 # ./kaffeine
-./kindlevncviewer "$@"
+./kindlevncviewer -config config.lua "$@"
 # ./kaffeine 3
