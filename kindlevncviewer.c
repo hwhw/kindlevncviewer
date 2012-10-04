@@ -30,6 +30,7 @@ int refresh_pending = 0;
 int refresh_full_counter = 0;
 int refresh_partial_counter = 0;
 int dithered = 0;
+int framebuffer_bpp = 4;
 int running = 1;
 
 int inputfds[] = {-1, -1, -1};
@@ -151,6 +152,41 @@ void rfb16ToHalftonedFramebuffer4(int x, int y, int w, int h) {
 	}
 }
 
+void rfb16ToFramebuffer8(int x, int y, int w, int h) {
+	int cx, cy;
+
+	/* we read single pixels */
+	uint16_t *src = (uint16_t*)(client->frameBuffer) + client->width*y + x;
+	/* and we write single pixels */
+	uint8_t *dest = (uint8_t*)fbdata + finfo.line_length*y + x;
+
+	for(cy = 0; cy < h; cy++) {
+		for(cx = 0; cx < w; cx++) {
+			uint32_t c;
+			uint16_t v;
+			uint8_t dval;
+
+			v = *(src + cx*2);
+#ifdef PERFECT_COLOR_CONVERSION
+			c = ((v & 0x001F) * 77 // red
+				+ ((v & 0x03E0) >> 5) * 151 // green
+				+ ((v & 0x7C00) >> 10) * 28 // blue
+			    ) >> (8 /* from multipl. above */ + 1 /* 5 -> 4 */ );
+#else
+			c = ((v & 0x001F) // red
+				+ (((v & 0x03E0) >> 5) << 1) // green counts 2x
+				+ ((v & 0x7C00) >> 10) // blue
+			    ) >> (2 /* from shifts above */ + 1 /* 5 -> 4 */ );
+#endif
+			dval = ((uint8_t)c << 4) + ((uint8_t)c & 0xF); /* repeat value in lower nibble */
+
+			*(dest+cx) = dval;
+		}
+		dest += finfo.line_length;
+		src += client->width*2 >> 1;
+	}
+}
+
 void rfb16ToFramebuffer4(int x, int y, int w, int h) {
 	int cx, cy;
 	int len = (w + (x & 1)) >> 1;
@@ -237,7 +273,11 @@ void updateFromRFB(rfbClient* client, int x, int y, int w, int h) {
 	int cw = (x+w > vinfo.xres) ? vinfo.xres - (x+1) : w;
 	int ch = (y+h > vinfo.yres) ? vinfo.yres - (y+1) : h;
 	if(!dithered) {
-		rfb16ToFramebuffer4(cx, cy, cw, ch);
+		if(framebuffer_bpp==4) {
+			rfb16ToFramebuffer4(cx, cy, cw, ch);
+		} else {
+			rfb16ToFramebuffer8(cx, cy, cw, ch);
+		}
 	} else {
 		rfb16ToHalftonedFramebuffer4(cx, cy, cw, ch);
 	}
@@ -399,8 +439,13 @@ int main(int argc, char **argv) {
 	}
 
 	if (vinfo.bits_per_pixel != 4) {
-		fprintf(stderr, "Error: 4BPP is supported for now\n");
-		return 1;
+		if (vinfo.bits_per_pixel != 8) {
+			fprintf(stderr, "Error: 4BPP or 8BPP is supported for now\n");
+			return 1;
+		}
+		framebuffer_bpp = 8;
+	} else {
+		framebuffer_bpp = 4;
 	}
 
 	if (vinfo.xres <= 0 || vinfo.yres <= 0) {
@@ -443,8 +488,12 @@ int main(int argc, char **argv) {
 			config = strdup(argv[i+1]);
 			i++;
 		} else if(strcmp("-dithered", argv[i]) == 0) {
-			mkMatrix(vinfo.xres, vinfo.yres);
-			dithered = 1;
+			if(framebuffer_bpp == 4) {
+				mkMatrix(vinfo.xres, vinfo.yres);
+				dithered = 1;
+			} else {
+				fprintf(stderr, "dithering is only supported for 4bpp displays for now, sorry.\n");
+			}
 		}
 	}
 
