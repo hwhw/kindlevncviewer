@@ -166,7 +166,7 @@ void rfb16ToFramebuffer8(int x, int y, int w, int h) {
 			uint16_t v;
 			uint8_t dval;
 
-			v = *(src + cx*2);
+			v = *(src + cx);
 #ifdef PERFECT_COLOR_CONVERSION
 			c = ((v & 0x001F) * 77 // red
 				+ ((v & 0x03E0) >> 5) * 151 // green
@@ -178,12 +178,10 @@ void rfb16ToFramebuffer8(int x, int y, int w, int h) {
 				+ ((v & 0x7C00) >> 10) // blue
 			    ) >> (2 /* from shifts above */ + 1 /* 5 -> 4 */ );
 #endif
-			dval = ((uint8_t)c << 4) + ((uint8_t)c & 0xF); /* repeat value in lower nibble */
-
-			*(dest+cx) = dval;
+			*(dest+cx) = ((uint8_t)c << 4) + ((uint8_t)c & 0xF); /* repeat value in lower nibble */
 		}
 		dest += finfo.line_length;
-		src += client->width*2 >> 1;
+		src += client->width;
 	}
 }
 
