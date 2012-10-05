@@ -178,7 +178,7 @@ void rfb16ToFramebuffer8(int x, int y, int w, int h) {
 				+ ((v & 0x7C00) >> 10) // blue
 			    ) >> (2 /* from shifts above */ + 1 /* 5 -> 4 */ );
 #endif
-			*(dest+cx) = ((uint8_t)c << 4) + ((uint8_t)c & 0xF); /* repeat value in lower nibble */
+			*(dest+cx) = (((uint8_t)c << 4) + ((uint8_t)c & 0xF)) ^ 255; /* repeat value in lower nibble */
 		}
 		dest += finfo.line_length;
 		src += client->width;
