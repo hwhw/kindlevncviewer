@@ -1,0 +1,12 @@
+[submodule "libvncserver"]
+	path = libvncserver
+	url = git://git.code.sf.net/p/libvncserver/code
+[submodule "luajit-2.0"]
+	path = luajit-2.0
+	url = http://luajit.org/git/luajit-2.0.git
+[submodule "libjpeg"]
+	path = libjpeg
+	url = http://anongit.freedesktop.org/git/libjpeg.git
+[submodule "zlib"]
+	path = zlib
+	url = https://github.com/madler/zlib.git
