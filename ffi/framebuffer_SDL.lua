@@ -13,12 +13,21 @@ function fb.open()
 	-- we present this buffer to the outside
 	fb.bb = BB.new(SDL.screen.w, SDL.screen.h)
 
-	fb.real_bb = BB.newBuffer(SDL.screen.w, SDL.screen.h, SDL.screen.pitch,
-		SDL.screen.pixels, 32, true)
+	fb.real_bb = BB.new(SDL.screen.w, SDL.screen.h, BB.TYPE_BBRGB32,
+		SDL.screen.pixels, SDL.screen.pitch)
+	fb.real_bb:invert()
 
 	fb:refresh()
 
 	return fb
+end
+
+function fb:getSize()
+	return self.bb.w, self.bb.h
+end
+
+function fb:getPitch()
+	return self.bb.pitch
 end
 
 function fb:setOrientation(mode)
@@ -37,16 +46,17 @@ function fb:getOrientation()
 	end
 end
 
-function fb:refresh(refreshtype, x1, y1, w, h)
+function fb:refresh(refreshtype, waveform_mode, x1, y1, w, h)
 	if x1 == nil then x1 = 0 end
 	if y1 == nil then y1 = 0 end
-	if w == nil then w = SDL.screen.w - x1 end
-	if h == nil then h = SDL.screen.h - y1 end
+
+	-- adapt to possible rotation changes
+	self.real_bb:setRotation(self.bb:getRotation())
 	
 	if SDL.SDL.SDL_LockSurface(SDL.screen) < 0 then
 		error("Locking screen surface")
 	end
-	self.real_bb:blitFrom(self.bb, 0, 0, x1, y1, w, h, BB.mod_invert)
+	self.real_bb:blitFrom(self.bb, x1, y1, x1, y1, w, h)
 
 	SDL.SDL.SDL_UnlockSurface(SDL.screen)
 	SDL.SDL.SDL_Flip(SDL.screen)

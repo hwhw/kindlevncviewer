@@ -8,43 +8,21 @@ Return ASCII char resembling hex notation of @value
 
 @value an integer between 0 and 15
 --]]
-local function hexChar4(value)
-	local offset = 0x30
-	if value >= 10 then offset = 0x41 - 10 end
-	ffi.C.fputc(offset+value, io.stdout)
-end
-
-local function hexChar8(value)
-	hexChar4(bit.band(bit.rshift(value, 4), 0x0F))
-	hexChar4(bit.band(value, 0x0F))
-end
-
 local function bbinfo(bb)
-	ffi.C.fprintf(io.stdout, "BlitBuffer, width=%d, height=%d, pitch=%d\n", bb.w, bb.h, bb.pitch)
+	io.stdout:write("BlitBuffer, bpp=", bb:getBpp(), ", width=", bb:getWidth(), ", height=", bb:getHeight(), ", config=0x", bit.tohex(bb.config, 2), "\n")
 end
 
-local function BB4dumpHex(bb)
-	for y = 0, bb.h-1 do for x = 0, bb.w-1 do
-		hexChar4(bb:getPixel(x, y)[0]:getGrayValue4())
-		ffi.C.fputc(0x20, io.stdout)
-	end ffi.C.fputc(0x0A, io.stdout) end
-end
-
-local function BB8dumpHex(bb)
-	for y = 0, bb.h-1 do for x = 0, bb.w-1 do
-		hexChar8(bb:getPixel(x, y)[0]:getGrayValue8())
-		ffi.C.fputc(0x20, io.stdout)
-	end ffi.C.fputc(0x0A, io.stdout) end
+local function BBdumpHex(bb)
+	for y = 0, bb:getHeight()-1 do for x = 0, bb:getWidth()-1 do
+		io.stdout:write(bit.tohex(bb:getPixel(x, y):getR(), bb:getBpp()/4), " ")
+	end io.stdout:write("\n") end
 end
 
 local function BBRGBdumpHex(bb)
-	for y = 0, bb.h-1 do for x = 0, bb.w-1 do
+	for y = 0, bb:getHeight()-1 do for x = 0, bb:getWidth()-1 do
 		local p = bb:getPixel(x, y)
-		hexChar8(p[0]:getR())
-		hexChar8(p[0]:getG())
-		hexChar8(p[0]:getB())
-		ffi.C.fputc(0x20, io.stdout)
-	end ffi.C.fputc(0x0A, io.stdout) end
+		io.stdout:write(bit.tohex(p:getR(), 2), bit.tohex(p:getG(), 2), bit.tohex(p:getB(), 2), " ")
+	end io.stdout:write("\n") end
 end
 
 --[[
@@ -55,12 +33,7 @@ function bb.dumpHex(bb)
 	if bb:isRGB() then
 		BBRGBdumpHex(bb)
 	else
-		local bpp = bb:getBpp()
-		if bpp == 4 then
-			BB4dumpHex(bb)
-		else
-			BB8dumpHex(bb)
-		end
+		BBdumpHex(bb)
 	end
 end
 

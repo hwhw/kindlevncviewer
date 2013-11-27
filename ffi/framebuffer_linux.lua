@@ -5,126 +5,142 @@ local BB = require("ffi/blitbuffer")
 local dummy = require("ffi/linux_fb_h")
 local dummy = require("ffi/posix_h")
 
-local fb = {
-	fd = -1,
-	finfo = ffi.new("fb_fix_screeninfo"),
-	vinfo = ffi.new("fb_var_screeninfo"),
-	fb_size
-}
+local framebuffer = {}
+local framebuffer_mt = {__index={}}
 
-function fb.open(device)
-	fb.fd = ffi.C.open(device, O_RDWR)
-	assert(fb.fd == 0, "cannot open framebuffer")
+local function einkfb_update(fb, refreshtype, waveform_mode, x, y, w, h)
+	local refarea = ffi.new("struct update_area_t[1]")
+
+	refarea[0].x1 = x or 0
+	refarea[0].y1 = y or 0
+	refarea[0].x2 = x + (w or (fb.vinfo.xres-x))
+	refarea[0].y2 = y + (h or (fb.vinfo.yres-y))
+	refarea[0].buffer = nil
+	if refreshtype == 0 then
+		refarea[0].which_fx = ffi.C.fx_update_partial
+	else
+		refarea[0].which_fx = ffi.C.fx_update_full
+	end
+
+	ioctl(fb.fd, ffi.C.FBIO_EINK_UPDATE_DISPLAY_AREA, refarea);
+end
+
+local function mxc_update(fb, refarea, refreshtype, waveform_mode, x, y, w, h)
+	refarea[0].update_mode = refreshtype or 0
+	refarea[0].waveform_mode = waveform_mode or 2
+	refarea[0].update_region.left = x or 0
+	refarea[0].update_region.top = y or 0
+	refarea[0].update_region.width = w or fb.vinfo.xres
+	refarea[0].update_region.height = h or fb.vinfo.yres
+	refarea[0].update_marker = 1
+	refarea[0].temp = 0x1000
+	-- TODO make the flag configurable from UI,
+	-- this flag invert all the pixels on display  09.01 2013 (houqp)
+	refarea[0].flags = 0
+	refarea[0].alt_buffer_data.phys_addr = 0
+	refarea[0].alt_buffer_data.width = 0
+	refarea[0].alt_buffer_data.height = 0
+	refarea[0].alt_buffer_data.alt_update_region.top = 0
+	refarea[0].alt_buffer_data.alt_update_region.left = 0
+	refarea[0].alt_buffer_data.alt_update_region.width = 0
+	refarea[0].alt_buffer_data.alt_update_region.height = 0
+	ffi.C.ioctl(fb.fd, ffi.C.MXCFB_SEND_UPDATE, refarea)
+end
+
+local function k51_update(fb, refreshtype, waveform_mode, x, y, w, h)
+	local refarea = ffi.new("struct mxcfb_update_data[1]")
+	-- only for Amazon's driver:
+	refarea[0].hist_bw_waveform_mode = 0
+	refarea[0].hist_gray_waveform_mode = 0
+
+	return mxc_update(fb, refarea, refreshtype, waveform_mode, x, y, w, h)
+end
+
+local function kobo_update(fb, refreshtype, waveform_mode, x, y, w, h)
+	local refarea = ffi.new("struct mxcfb_update_data[1]")
+	-- only for Kobo driver:
+	refarea[0].alt_buffer_data.virt_addr = nil
+
+	return mxc_update(fb, refarea, refreshtype, waveform_mode, x, y, w, h)
+end
+
+function framebuffer.open(device)
+	local fb = {
+		fd = -1,
+		finfo = ffi.new("struct fb_fix_screeninfo"),
+		vinfo = ffi.new("struct fb_var_screeninfo"),
+		fb_size = -1,
+		einkUpdateFunc = nil,
+		bb = nil,
+		data = nil
+	}
+	setmetatable(fb, framebuffer_mt)
+
+	fb.fd = ffi.C.open(device, ffi.C.O_RDWR)
+	assert(fb.fd ~= -1, "cannot open framebuffer")
 
 	-- Get fixed screen information
 	assert(ffi.C.ioctl(fb.fd, ffi.C.FBIOGET_FSCREENINFO, fb.finfo) == 0,
 		"cannot get screen info")
 
+	assert(ffi.C.ioctl(fb.fd, ffi.C.FBIOGET_VSCREENINFO, fb.vinfo) == 0,
+		"cannot get variable screen info")
+
 	assert(fb.finfo.type == ffi.C.FB_TYPE_PACKED_PIXELS,
 		"video type not supported")
 
+	--Kindle Paperwhite doesn't set this properly?
+	--assert(fb.vinfo.grayscale == 0, "only grayscale is supported but framebuffer says it isn't")
+	assert(fb.vinfo.xres_virtual > 0 and fb.vinfo.yres_virtual > 0, "invalid framebuffer resolution")
+
+	-- it seems that fb.finfo.smem_len is unreliable on kobo
+	-- Figure out the size of the screen in bytes
+	fb.fb_size = fb.vinfo.xres_virtual * fb.vinfo.yres_virtual * fb.vinfo.bits_per_pixel / 8
+
+	fb.data = ffi.C.mmap(nil, fb.fb_size, bit.bor(ffi.C.PROT_READ, ffi.C.PROT_WRITE), ffi.C.MAP_SHARED, fb.fd, 0)
+	assert(fb.data ~= ffi.C.MAP_FAILED, "can not mmap() framebuffer")
+
 	if ffi.string(fb.finfo.id, 11) == "mxc_epdc_fb" then
-		/* Kindle PaperWhite and KT with 5.1 or later firmware */
-		einkUpdateFunc = &kindle51einkUpdate;
-	elseif ffi.string(fb.finfo.id, 7) == "eink_fb" then
-		if fb.vinfo.bits_per_pixel == 8 then
-			/* kindle4 */
-			einkUpdateFunc = &kindle4einkUpdate;
+		-- TODO: implement a better check for Kobo
+		if fb.vinfo.bits_per_pixel == 16 then
+			-- this ought to be a Kobo
+			local dummy = require("ffi/mxcfb_kobo_h")
+			fb.einkUpdateFunc = kobo_update
+			fb.bb = BB.new(fb.vinfo.xres, fb.vinfo.yres, BB.TYPE_BB16, fb.data, fb.finfo.line_length)
+			fb.bb:invert()
+			if fb.vinfo.xres > fb.vinfo.yres then
+				-- Kobo framebuffers need to be rotated counter-clockwise (they start in landscape mode)
+				fb.bb:rotate(-90)
+			end
+		elseif fb.vinfo.bits_per_pixel == 8 then
+			-- Kindle PaperWhite and KT with 5.1 or later firmware
+			local dummy = require("ffi/mxcfb_kindle_h")
+			fb.einkUpdateFunc = k51_update
+			fb.bb = BB.new(fb.vinfo.xres, fb.vinfo.yres, BB.TYPE_BB8, fb.data, fb.finfo.line_length)
+			fb.bb:invert()
 		else
-			/* kindle2, 3, DXG */
-			einkUpdateFunc = &kindle3einkUpdate;
+			error("unknown bpp value for the mxc eink driver")
+		end
+	elseif ffi.string(fb.finfo.id, 7) == "eink_fb" then
+		local dummy = require("ffi/einkfb_h")
+		fb.einkUpdateFunc = einkfb_update
+
+		if fb.vinfo.bits_per_pixel == 8 then
+			fb.bb = BB.new(fb.vinfo.xres, fb.vinfo.yres, BB.TYPE_BB8, fb.data, fb.finfo.line_length)
+		elseif fb.vinfo.bits_per_pixel == 4 then
+			fb.bb = BB.new(fb.vinfo.xres, fb.vinfo.yres, BB.TYPE_BB4, fb.data, fb.finfo.line_length)
+		else
+			error("unknown bpp value for the classic eink driver")
 		end
 	else
 		error("eink model not supported");
 	end
 
-	assert(ffi.C.ioctl(fb.fd, ffi.C.FBIOGET_VSCREENINFO, fb.vinfo) == 0,
-		"cannot get variable screen info")
-
---[[
-	if (fb->vinfo.bits_per_pixel == 16) {
-		/* Only (known) platform using this is Kobo;
-		 * since we can change the mode to 8bpp, at this time
-		 * driving directly the screen at 16bpp is not supported.
-		 * */
-		fb->vinfo.bits_per_pixel = 8;
-		fb->vinfo.grayscale = 1;
-		fb->vinfo.rotate = 3; // 0 is landscape right handed, 3 is portrait
-		if (ioctl(fb->fd, FBIOPUT_VSCREENINFO, &fb->vinfo)) {
-			return luaL_error(L, "cannot change screen bpp");
-		}
-		/* at this point fb->finfo should be changed */
-		if (ioctl(fb->fd, FBIOGET_FSCREENINFO, &fb->finfo)) {
-			return luaL_error(L, "cannot get screen info");
-		}
-		if (fb->vinfo.bits_per_pixel == 16) {
-			return luaL_error(L, "cannot change screen bpp");
-		}
-	}
---]]
-
-	assert(fb.vinfo.grayscale ~= 0, "only grayscale is supported but framebuffer says it isn't")
-	assert(fb.vinfo.xres > 0 and fb.vinfo.yres > 0,
-		"invalid framebuffer resolution")
-
-	/* mmap the framebuffer */
-#ifndef KOBO_PLATFORM
-	fb_map_address = mmap(0, fb->finfo.smem_len,
-			PROT_READ | PROT_WRITE, MAP_SHARED, fb->fd, 0);
-#else
-	/* it seems that fb->finfo.smem_len is unreliable on kobo */
-	// Figure out the size of the screen in bytes
-	fb->fb_size = (fb->vinfo.xres_virtual * fb->vinfo.yres_virtual * fb->vinfo.bits_per_pixel / 8);
-	fb_map_address = mmap(0, fb->fb_size,
-       PROT_READ | PROT_WRITE, MAP_SHARED, fb->fd, 0);
-#endif
-	if(fb_map_address == MAP_FAILED) {
-		return luaL_error(L, "cannot mmap framebuffer");
-	}
-
-	if (fb->vinfo.bits_per_pixel == 8) {
-		/* for 8bpp K4, PaperWhite, we create a shadow 4bpp blitbuffer.
-		 * These models use 16 scale 8bpp framebuffer, so they are
-		 * actually fake 8bpp FB. Therefore, we still treat them as 4bpp
-		 *
-		 * For PaperWhite, the screen width is 758, but FB's line_length
-		 * is 768. So when doing the screen update, you still need to
-		 * fill 768 pixels per line, but the trailing 10 px for each
-		 * line is actually ignored by driver.
-		 * */
-		fb->buf->pitch = fb->vinfo.xres / 2;
-
-		fb->buf->data = (uint8_t *)calloc(fb->buf->pitch * fb->vinfo.yres, sizeof(uint8_t));
-		if (!fb->buf->data) {
-			return luaL_error(L, "failed to allocate memory for framebuffer's shadow blitbuffer!");
-		}
-		fb->buf->allocated = 1;
-
-		/* now setup framebuffer map */
-		fb->real_buf = (BlitBuffer *)malloc(sizeof(BlitBuffer));
-		if (!fb->buf->data) {
-			return luaL_error(L, "failed to allocate memory for framebuffer's blitbuffer!");
-		}
-		fb->real_buf->pitch = fb->finfo.line_length;
-		fb->real_buf->w = fb->vinfo.xres;
-		fb->real_buf->h = fb->vinfo.yres;
-		fb->real_buf->allocated = 0;
-		fb->real_buf->data = fb_map_address;
-	} else {
-		fb->buf->pitch = fb->finfo.line_length;
-		/* for K2, K3 and DXG, we map framebuffer to fb->buf->data directly */
-		fb->real_buf = NULL;
-		fb->buf->data = fb_map_address;
-		fb->buf->allocated = 0;
-	}
-
-	-- we present this buffer to the outside
-	fb.bb = BB.new(SDL.screen.w, SDL.screen.h)
 	return fb
 end
 
-function fb:getOrientation()
-	local mode = ffi.new("int")
+function framebuffer_mt:getOrientation()
+	local mode = ffi.new("int[1]")
 	ffi.C.ioctl(self.fd, ffi.C.FBIO_EINK_GET_DISPLAY_ORIENTATION, mode)
 
 	-- adjust ioctl's rotate mode definition to KPV's
@@ -137,7 +153,7 @@ function fb:getOrientation()
 	return mode
 end
 
-function fb:setOrientation(mode)
+function framebuffer_mt:setOrientation(mode)
 	mode = ffi.cast("int", mode or 0)
 	if mode < 0 or mode > 3 then
 		error("Wrong rotation mode given!")
@@ -167,42 +183,30 @@ function fb:setOrientation(mode)
 		mode = 1
 	end
 
-	ffi.C.ioctl(fb.fd, ffi.C.FBIO_EINK_SET_DISPLAY_ORIENTATION, mode)
+	ffi.C.ioctl(self.fd, ffi.C.FBIO_EINK_SET_DISPLAY_ORIENTATION, mode)
 end
 
-function fb:refresh(refreshtype, x1, y1, w, h)
-	if x1 == nil then x1 = 0 end
-	if y1 == nil then y1 = 0 end
-	if w == nil then w = SDL.screen.w - x1 end
-	if h == nil then h = SDL.screen.h - y1 end
-	
-	if SDL.LockSurface(SDL.screen) < 0 then
-		error("Locking screen surface")
-	end
-	local screendata = ffi.cast("uint32_t*", SDL.screen.pixels)
-	local screenpitch = bit.rshift(SDL.screen.pitch, 2)
-	local screenformat = SDL.screen.format
-	for y = y1, y1+h-1 do
-		for x = x1, x1+w-1 do
-			local value = self.bb:getPixel(x, y)
-			value = 255 - bit.bor(value, bit.lshift(value, 4))
-			screendata[y*screenpitch + x] = SDL.MapRGB(screenformat, value, value, value)
-		end
-	end
-	SDL.UnlockSurface(SDL.screen)
-	SDL.Flip(SDL.screen)
+function framebuffer_mt.__index:refresh(refreshtype, waveform_mode, x, y, w, h)
+        w, x = BB.checkBounds(w or self.bb:getWidth(), x or 0, 0, self.bb:getWidth(), 0xFFFF)
+        h, y = BB.checkBounds(h or self.bb:getHeight(), y or 0, 0, self.bb:getHeight(), 0xFFFF)
+	x, y, w, h = self.bb:getPhysicalRect(x, y, w, h)
+	self:einkUpdateFunc(refreshtype, waveform_mode, x, y, w, h)
 end
 
-function fb:getSize()
-	return self.bb.w, self.bb.h
+function framebuffer_mt.__index:getSize()
+	return self.bb:getWidth(), self.bb:getHeight()
 end
 
-function fb:getPitch()
+function framebuffer_mt.__index:getPitch()
 	return self.bb.pitch
 end
 
-function fb:close()
-	-- for now, we do nothing when in emulator mode
+function framebuffer_mt.__index:close()
+	ffi.C.munmap(self.data, self.fb_size)
+	ffi.C.close(self.fd)
+	self.fd = -1
+	self.data = nil
+	self.bb = nil
 end
 
-return fb
+return framebuffer

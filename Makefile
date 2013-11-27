@@ -1,21 +1,44 @@
-FFI_CDECL=../koreader-misc/ffi-cdecl/ffi-cdecl gcc -Ilibvncserver/
+ARCH?=arm-none-linux-gnueabi
+CC=$(ARCH)-gcc
+# for luajit:
+HOST_CC="gcc -m32"
 
-LUADIR=../lua-5.1.4
-CFLAGS=`pkg-config --cflags libvncclient` -I$(LUADIR)/src
-LDFLAGS=`pkg-config --libs libvncclient` -lm -ldl
-PKG_CONFIG_PATH=/home/hw/x-tools/arm-unknown-linux-gnueabi/arm-unknown-linux-gnueabi/sys-root/usr/lib/pkgconfig/
-CC=arm-unknown-linux-gnueabi-gcc
+FFI_CDECL=../koreader-misc/ffi-cdecl/ffi-cdecl $(CC) -Ilibvncserver/
+#VERSION=$(shell git describe HEAD)
+VERSION=$(shell date +'%Y-%m-%d_%H-%m')
+
+DISTRIBUTE=ffi config.lua keys.lua rfbkeys.lua kindlevncviewer.lua \
+	luajit-2.0/src/luajit \
+	libvncserver/libvncclient/.libs/libvncclient.so.0
+
+all: dist/kindlevncviewer-$(ARCH)-$(VERSION).zip
+
+clean:
+	make -C luajit-2.0 clean
+	make -C libvncserver clean
+
+luajit-2.0/src/luajit:
+	make -C luajit-2.0 HOST_CC=$(HOST_CC) CROSS=$(ARCH)-
+
+libvncserver/libvncclient/.libs/libvncclient.so.0:
 
 cdecl: \
 	ffi/posix_h.lua \
 	ffi/linux_fb_h.lua \
+	ffi/einkfb_h.lua \
+	ffi/mxcfb_kindle_h.lua \
+	ffi/mxcfb_kobo_h.lua \
 	ffi/linux_input_h.lua \
 	ffi/rfbclient_h.lua
 
 ffi/%_h.lua: ffi-cdecl/%_decl.c
 	$(FFI_CDECL) $< > $@
 
-kindlevncviewer: kindlevncviewer.o
-	$(CC) $(LDFLAGS) kindlevncviewer.o $(LUADIR)/src/liblua.a -o kindlevncviewer
+dist/kindlevncviewer-$(ARCH)-$(VERSION).zip: $(DISTRIBUTE) cdecl
+	-rm $@
+	-rm -rf dist/$(ARCH)
+	mkdir -p dist/$(ARCH)/kindlevncviewer
+	echo 'return "$(VERSION)"' > dist/$(ARCH)/kindlevncviewer/version.lua
+	cp -rL $(DISTRIBUTE) dist/$(ARCH)/kindlevncviewer/
+	cd dist/$(ARCH) && zip -r9 ../../$@ kindlevncviewer
 
-kindlevncviewer.o: kindlevncviewer.c

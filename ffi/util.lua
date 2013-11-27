@@ -2,15 +2,10 @@
 Module for various utility functions
 ]]
 
-local ffi = require("ffi")
-local bit = require("bit")
+local ffi = require "ffi"
+local bit = require "bit"
 
-local dummy = require("ffi/posix_h")
-
-ffi.cdef[[
-unsigned int sleep(unsigned int);
-int usleep(unsigned int);
-]]
+require("ffi/posix_h")
 
 local util = {}
 
