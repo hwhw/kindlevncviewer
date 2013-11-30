@@ -5,7 +5,6 @@ local evloop = require("ffi/eventloop")
 local input = require("ffi/input")
 local posix = require("ffi/posix_h")
 local rfb = require("ffi/rfbclient")
-local geom = require("geometry")
 
 local password = nil
 local client = nil
