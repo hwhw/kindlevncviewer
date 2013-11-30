@@ -1,5 +1,5 @@
 This is a VNC viewer for e-book devices
-Copyright (c) 2011 Hans-Werner Hilse <hilse@web.de>
+Copyright (c) 2013 Hans-Werner Hilse <hilse@web.de>
 
 It works on the framebuffer, using the einkfb API from e-ink devices (einkfb.h) to do screen refreshs.
 This is based on LibVNCclient (part of the LibVNCserver project, see http://libvncserver.sourceforge.net/.
@@ -8,11 +8,13 @@ This is based on LibVNCclient (part of the LibVNCserver project, see http://libv
 There's a discussion thread at
 http://www.mobileread.com/forums/showthread.php?t=150434
 
+Note that the current version is a major rewrite from the original version.
+The current version is implemented in Lua, targeted at LuaJIT.
+
 
 Configuration:
 --------------
 
-There are a few hard-compiled config items. See the #define statements in kindlevncviewer.c
 Most notable is the "endless reconnect" feature. It will try to make a new connection to the VNC server if the old connection died. This seems to be needed on the author's Kindle DX as the device will kill TCP connections after a while.
 
 Now it supports input handling using a Lua config file (config.lua). Edit this to create different keyboard layouts or similar things.
@@ -23,12 +25,11 @@ Building:
 
 It is suggested to compile LibVNCclient in a very minimal version. Personally, I use the following call to configure:
 
-    PKG_CONFIG_PATH=/home/hw/x-tools/arm-unknown-linux-gnueabi/arm-unknown-linux-gnueabi/sys-root/usr/lib/pkgconfig/ \
-    ./configure --without-gcrypt --without-client-gcrypt \
-                --without-gnutls --without-client-tls \
-                --without-ipv6 --host=arm-unknown-linux-gnueabi \
-                 --host=arm-unknown-linux-gnueabi \
-                --prefix=/home/hw/x-tools/arm-unknown-linux-gnueabi/arm-unknown-linux-gnueabi/sys-root/usr/
+    ./configure --without-gcrypt --without-client-gcrypt --without-gnutls --without-ssl --without-ipv6
+                --host=arm-unknown-linux-gnueabi --host=arm-unknown-linux-gnueabi --without-libva
+    then use
+    make -C libvncclient
+    to build the libvncclient libraries. They will be located in the libvncclient/.libs subfolder.
 
 LibVNCclient will have dependencies on libjpeg and libz in this case.
 Of course, you will have to alter that to read path names that point to your own cross toolchain.
