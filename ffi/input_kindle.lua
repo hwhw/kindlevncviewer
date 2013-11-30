@@ -12,8 +12,8 @@ local input_queue = {}
 
 function input.read(fd)
 	local event = ffi.new("struct input_event")
-	local n = ffi.C.read(fd, event, sizeof(event))
-	if n ~= sizeof(event) then error("could not read full input_event") end
+	local n = ffi.C.read(fd, event, ffi.sizeof(event))
+	if n ~= ffi.sizeof(event) then error("could not read full input_event") end
 	table.insert(input_queue, event)
 	evloop.abort_loop()
 end
