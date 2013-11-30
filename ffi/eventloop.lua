@@ -84,6 +84,19 @@ function events.register_timer_in_ms(milliseconds, callback, id)
 end
 
 --[[
+check if a timer exists (and is running)
+--]]
+function events.timer_running(id)
+	if not timers then return false end
+	local tail = timers
+	repeat
+		if tail.id == id then return true end
+		tail = tail.next
+	until not tail
+	return false
+end
+
+--[[
 remove a filedescriptor from being monitored
 --]]
 function events.unregister_fd(fd)
@@ -220,7 +233,12 @@ function events.loop(timeout)
 				end
 			end
 		elseif ret < 0 then
-			error("poll()", ret)
+			local errno = ffi.errno()
+			if errno == ffi.C.EINTR then
+				-- unhandled signal, ignore this for now...
+			else
+				error("poll(): " .. ffi.string(ffi.C.strerror(errno)))
+			end
 		end
 	end
 end
