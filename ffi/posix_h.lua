@@ -69,4 +69,6 @@ int printf(const char *, ...);
 int sprintf(char *, const char *, ...) __attribute__((nothrow));
 int fprintf(struct _IO_FILE *restrict, const char *restrict, ...);
 int fputc(int, struct _IO_FILE *);
+char *strerror(int) __attribute__((__nothrow__, __leaf__));
+static const int EINTR = 4;
 ]]

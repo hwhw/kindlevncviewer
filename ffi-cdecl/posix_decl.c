@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <errno.h>
 
 #include "cdecl.h"
 
@@ -71,3 +72,6 @@ cdecl_func(printf)
 cdecl_func(sprintf)
 cdecl_func(fprintf)
 cdecl_func(fputc)
+
+cdecl_func(strerror)
+cdecl_const(EINTR)
