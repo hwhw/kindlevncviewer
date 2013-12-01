@@ -34,7 +34,7 @@ OBJECTS= \
 	$(ZLIB) \
 	$(LIBJPEG)
 
-DISTRIBUTE=ffi config.lua keys.lua rfbkeys.lua vncviewer.lua geometry.lua \
+DISTRIBUTE=ffi config.lua keys.lua rfbkeys.lua vncviewer.lua \
 	README COPYING \
 	$(OBJECTS)
 
