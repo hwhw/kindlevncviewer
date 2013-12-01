@@ -15,30 +15,22 @@ The current version is implemented in Lua, targeted at LuaJIT.
 Configuration:
 --------------
 
-Most notable is the "endless reconnect" feature. It will try to make a new connection to the VNC server if the old connection died. This seems to be needed on the author's Kindle DX as the device will kill TCP connections after a while.
+input handling is configurable/customizable in "config.lua".
 
-Now it supports input handling using a Lua config file (config.lua). Edit this to create different keyboard layouts or similar things.
+kVNCviewer supports a lot of options that determine various settings. Run it without any argument to show a list of supported options. In addition, libvncviewer parses the options, too. That allows for additional configuration settings. Look into the documentation of libvncviewer to see those options:
+http://libvncserver.sourceforge.net/doc/html/group__libvncclient__api.html#gabb2299d1644f3cf38544eb97d2356475
 
 
 Building:
 ---------
 
-It is suggested to compile LibVNCclient in a very minimal version. Personally, I use the following call to configure:
+In order to build kindlevncviewer, you can use GNU make. Specify a toolchain prefix as "ARCH" variable:
 
-    ./configure --without-gcrypt --without-client-gcrypt --without-gnutls --without-ssl --without-ipv6
-                --host=arm-unknown-linux-gnueabi --host=arm-unknown-linux-gnueabi --without-libva
-    then use
-    make -C libvncclient
-    to build the libvncclient libraries. They will be located in the libvncclient/.libs subfolder.
+    make ARCH=arm-linux-gnueabihf
 
-LibVNCclient will have dependencies on libjpeg and libz in this case.
-Of course, you will have to alter that to read path names that point to your own cross toolchain.
+and it should build luajit, zlib, libjpeg and finally libvncclient.
 
-In order to build kindlevncviewer, you should just edit the Makefile, adapt it to your toolchain name and path, and then just issue
-
-    make
-
-and it should build an executable.
+You can find the result in the "dist/<ARCH>" subdirectory. Also, a .zip file is created for distribution.
 
 
 Running:
@@ -46,30 +38,10 @@ Running:
 
 You need to copy the program and the libraries it needs (you can just try running it without and it will show you which libraries are missing) onto your ebook device. Then call (from a launcher app or a shell)
 
-    LD_LIBRARY_PATH=. kindlevncviewer -config config.lua 192.168.2.1:1
+    ./luajit vncviewer.lua 192.168.2.1:1
 
 (you will need to put in the correct server address or name and screen number).
 
-With the source code, a shell script is provided that will do the setup of LD_LIBRARY_PATH properly (kvncviewer.sh).
-Also, a config file for the "launchpad" application on Kindle is provided which makes use of the shell script.
-
-You can pass parameters to the executable, most notably a password.
-
-These are the options:
-
--password <passwordstring>
-
-	Allows to specify a password for password based authentification.  Note that this might show up in process lists of your device.  Typically, for ebook readers this should be of great concern, since no other users will be on the "machine" at the same time.
-
--readpassword
-
-	This is slightly more secure as it will read the password from standard input, so it will not show in process lists.
-
--config <file>
-
-	Parses Lua configuration file
-
-Also, libvncclient will allow for some further options, but the author of this viewer did not yet find the time to fetch their syntax from available documentation, sorry. There are options for selecting VNC encodings, setting compression and to do scaling (though it's unclear if that would actually work).
 
 Licensing/Copying:
 ------------------
