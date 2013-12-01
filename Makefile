@@ -34,10 +34,11 @@ OBJECTS= \
 	$(ZLIB) \
 	$(LIBJPEG)
 
-DISTRIBUTE=ffi config.lua keys.lua rfbkeys.lua kindlevncviewer.lua geometry.lua \
+DISTRIBUTE=ffi config.lua keys.lua rfbkeys.lua vncviewer.lua geometry.lua \
+	README COPYING \
 	$(OBJECTS)
 
-all: dist/kindlevncviewer-$(ARCH)-$(VERSION).zip
+all: dist/kvncviewer-$(ARCH)-$(VERSION).zip
 
 $(LUAJIT):
 ifdef ARCH
@@ -94,13 +95,13 @@ ffi/%_h.lua: ffi-cdecl/%_decl.c
 version.lua: $(DISTRIBUTE)
 	echo 'return "$(VERSION)"' > version.lua
 
-dist/kindlevncviewer-$(ARCH)-$(VERSION).zip: $(DISTRIBUTE) version.lua cdecl
+dist/kvncviewer-$(ARCH)-$(VERSION).zip: $(DISTRIBUTE) version.lua cdecl
 	-rm $@
 	-rm -rf dist/$(ARCH)
-	mkdir -p dist/$(ARCH)/kindlevncviewer
-	cp -rL $(DISTRIBUTE) dist/$(ARCH)/kindlevncviewer/
-	cd dist/$(ARCH)/kindlevncviewer && $(STRIP) --strip-unneeded *.so* luajit
-	cd dist/$(ARCH) && zip -r9 ../../$@ kindlevncviewer
+	mkdir -p dist/$(ARCH)/kvncviewer
+	cp -rL $(DISTRIBUTE) dist/$(ARCH)/kvncviewer/
+	cd dist/$(ARCH)/kvncviewer && $(STRIP) --strip-unneeded *.so* luajit
+	cd dist/$(ARCH) && zip -r9 ../../$@ kvncviewer
 
 clean:
 	$(MAKE) -C $(LUAJIT_DIR) clean

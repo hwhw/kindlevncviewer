@@ -9,6 +9,7 @@ local rfb = require("ffi/rfbclient")
 local password = nil
 local client = nil
 local rfbFramebuffer = nil
+local configfile = "config.lua"
 
 local waitRefresh = 250
 local rotateFB = 0
@@ -51,9 +52,6 @@ end
 function Quit()
 	os.exit(0)
 end
-
--- open the "config" file
-require("config")
 
 local function do_refresh_full(w, h)
 	refresh_full_ctr = refresh_full_ctr + w*h
@@ -168,7 +166,7 @@ end
 
 local function usage()
 	io.stderr:write([[
-KindleVNCViewer
+kVNCViewer
 A VNC viewer for e-ink devices
 This is free software (GPLv2)
 (c) 2013 Hans-Werner Hilse <hilse@web.de>
@@ -184,24 +182,36 @@ Available options:
 
 -password <password>
    specify a password
+
+-config <file>
+   load configuration from <file>. Default is "config.lua".
+
 -rotateFB <degree>
    rotate local framebuffer by <degree> degrees (multiple of 90)
+
 -waitRefresh <milliseconds>
    wait specified number of milliseconds after receiving an update
    before refreshing the screen. Default value is 150.
+
 -refreshFullAfterPixels <n>
    after updating <n> times the screen's pixels, a full eink
    refresh is issued. Default is 2.0
+
 -dither_bw
    dither to black/white (speeds up display on eink, but looks ugly)
+
 -medium
    a bit lower quality, but also a tad bit faster
+
 -fast
    low quality but fast
+
 -debug
    output some debug information
+
 -reconnecting
    always try to reconnect when we get connection errors
+
 -version
    output version number
 
@@ -223,6 +233,9 @@ for i,value in ipairs(arg) do
 	if value == "-h" or value == "-?" or value == "--help" then usage() end
 	if value == "-password" and arg[i+1] then
 		password = arg[i+1]
+		arg[i+1] = ""
+	elseif value == "-config" and arg[i+1] then
+		configfile = arg[i+1]
 		arg[i+1] = ""
 	elseif value == "-rotateFB" and arg[i+1] then
 		rotateFB = tonumber(arg[i+1])
@@ -251,6 +264,9 @@ for i,value in ipairs(arg) do
 		os.exit(0)
 	end
 end
+
+-- open the "config" file
+dofile(configfile)
 
 fb.bb:rotate(rotateFB)
 
