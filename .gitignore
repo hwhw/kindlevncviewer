@@ -1,0 +1,6 @@
+version.lua
+libvncclient.so
+dist/
+libjpeg-turbo-1.3.0/*
+luajit-2.0/*
+zlib/*
