@@ -27,13 +27,20 @@ function util.df(path)
 end
 
 function util.realpath(path)
-	local path_ptr = ffi.C.realpath(path, nil)
-	if path_ptr == nil then
-		return nil
+	local path_ptr = ffi.C.realpath(path, ffi.new("char[?]", ffi.C.PATH_MAX))
+	if path_ptr == nil then return nil end
+	return ffi.string(path_ptr)
+end
+
+function util.execute(...)
+	local pid = ffi.C.fork()
+	if pid == 0 then
+		local args = {...}
+		os.exit(ffi.C.execl(args[1], unpack(args, 1, #args+1)))
 	end
-	path = ffi.string(path_ptr)
-	ffi.C.free(path_ptr)
-	return path
+	local status = ffi.new('int[1]')
+	ffi.C.waitpid(pid, status, 0)
+	return status[0]
 end
 
 function util.utf8charcode(charstring)
@@ -42,7 +49,7 @@ function util.utf8charcode(charstring)
 	local result = 0
 	if len == 1 then
 		return bit.band(ptr[0], 0x7F)
-	elseif len == 2 then 
+	elseif len == 2 then
 		return bit.lshift(bit.band(ptr[0], 0x1F), 6) +
 			bit.band(ptr[1], 0x3F)
 	elseif len == 3 then
@@ -54,6 +61,15 @@ end
 
 function util.isEmulated()
 	return (ffi.arch ~= "arm")
+end
+
+local haveSDL2 = nil
+
+function util.haveSDL2()
+	if haveSDL2 == nil then
+		haveSDL2 = pcall(ffi.load, "SDL2")
+	end
+	return haveSDL2
 end
 
 return util
