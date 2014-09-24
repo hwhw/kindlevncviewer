@@ -49,6 +49,12 @@ typedef struct ColorRGB32 {
     uint8_t b;
     uint8_t a;
 } ColorRGB32;
+typedef struct ColorBGR32 {
+    uint8_t r;
+    uint8_t g;
+    uint8_t b;
+    uint8_t a;
+} ColorBGR32;
 
 typedef struct BlitBuffer4 {
     int w;
@@ -92,6 +98,13 @@ typedef struct BlitBufferRGB32 {
     ColorRGB32 *data;
     uint8_t config;
 } BlitBufferRGB32;
+typedef struct BlitBufferBGR32 {
+    int w;
+    int h;
+    int pitch;
+    ColorBGR32 *data;
+    uint8_t config;
+} BlitBufferBGR32;
 
 void *malloc(int size);
 void free(void *ptr);
@@ -105,6 +118,7 @@ local Color8A = ffi.typeof("Color8A")
 local ColorRGB16 = ffi.typeof("ColorRGB16")
 local ColorRGB24 = ffi.typeof("ColorRGB24")
 local ColorRGB32 = ffi.typeof("ColorRGB32")
+local ColorBGR32 = ffi.typeof("ColorBGR32")
 
 -- color value pointer types
 local P_Color4U = ffi.typeof("Color4U*")
@@ -114,6 +128,7 @@ local P_Color8A = ffi.typeof("Color8A*")
 local P_ColorRGB16 = ffi.typeof("ColorRGB16*")
 local P_ColorRGB24 = ffi.typeof("ColorRGB24*")
 local P_ColorRGB32 = ffi.typeof("ColorRGB32*")
+local P_ColorBGR32 = ffi.typeof("ColorBGR32*")
 
 -- metatables for color types:
 local Color4L_mt = {__index={}}
@@ -123,6 +138,7 @@ local Color8A_mt = {__index={}}
 local ColorRGB16_mt = {__index={}}
 local ColorRGB24_mt = {__index={}}
 local ColorRGB32_mt = {__index={}}
+local ColorBGR32_mt = {__index={}}
 
 -- color setting
 function Color4L_mt.__index:set(color)
@@ -142,6 +158,12 @@ function ColorRGB24_mt.__index:set(color)
 end
 function ColorRGB32_mt.__index:set(color)
     local c = color:getColorRGB32()
+    self.r = c.r
+    self.g = c.g
+    self.b = c.b
+end
+function ColorBGR32_mt.__index:set(color)
+    local c = color:getColorBGR32()
     self.r = c.r
     self.g = c.g
     self.b = c.b
@@ -175,6 +197,7 @@ function ColorRGB16_mt.__index:add(color, intensity)
 end
 ColorRGB24_mt.__index.add = ColorRGB16_mt.__index.add
 ColorRGB32_mt.__index.add = ColorRGB16_mt.__index.add
+ColorBGR32_mt.__index.add = ColorRGB16_mt.__index.add
 
 -- dimming
 function Color4L_mt.__index:dim()
@@ -186,6 +209,7 @@ Color8A_mt.__index.dim = Color4L_mt.__index.dim
 ColorRGB16_mt.__index.dim = Color4L_mt.__index.dim
 ColorRGB24_mt.__index.dim = Color4L_mt.__index.dim
 ColorRGB32_mt.__index.dim = Color4L_mt.__index.dim
+ColorBGR32_mt.__index.dim = Color4L_mt.__index.dim
 -- lighten up
 function Color4L_mt.__index:lighten(low)
     local value = self:getColor4L().a
@@ -202,6 +226,7 @@ Color8A_mt.__index.lighten = Color4L_mt.__index.lighten
 ColorRGB16_mt.__index.lighten = Color4L_mt.__index.lighten
 ColorRGB24_mt.__index.lighten = Color4L_mt.__index.lighten
 ColorRGB32_mt.__index.lighten = Color4L_mt.__index.lighten
+ColorBGR32_mt.__index.lighten = Color4L_mt.__index.lighten
 
 -- color conversions:
 -- to Color4L:
@@ -225,6 +250,7 @@ function ColorRGB24_mt.__index:getColor4L()
     return Color4L(rshift(4897*self.r + 9617*self.g + 1868*self.b, 18))
 end
 ColorRGB32_mt.__index.getColor4L = ColorRGB24_mt.__index.getColor4L
+ColorBGR32_mt.__index.getColor4L = ColorRGB24_mt.__index.getColor4L
 
 -- to Color4U:
 function Color4L_mt.__index:getColor4U() return Color4U(lshift(self.a, 4)) end
@@ -241,6 +267,7 @@ function ColorRGB24_mt.__index:getColor4U()
     return Color4U(band(0xF0, rshift(4897*self.r + 9617*self.g + 1868*self.b, 14)))
 end
 ColorRGB32_mt.__index.getColor4U = ColorRGB24_mt.__index.getColor4U
+ColorBGR32_mt.__index.getColor4U = ColorRGB24_mt.__index.getColor4U
 
 -- to Color8:
 function Color4L_mt.__index:getColor8()
@@ -263,6 +290,7 @@ function ColorRGB24_mt.__index:getColor8()
     return Color8(rshift(4897*self:getR() + 9617*self:getG() + 1868*self:getB(), 14))
 end
 ColorRGB32_mt.__index.getColor8 = ColorRGB24_mt.__index.getColor8
+ColorBGR32_mt.__index.getColor8 = ColorRGB24_mt.__index.getColor8
 
 -- to Color8A:
 function Color4L_mt.__index:getColor8A()
@@ -285,6 +313,7 @@ function ColorRGB24_mt.__index:getColor8A()
     return Color8A(rshift(4897*self:getR() + 9617*self:getG() + 1868*self:getB(), 14))
 end
 ColorRGB32_mt.__index.getColor8A = ColorRGB24_mt.__index.getColor8A
+ColorBGR32_mt.__index.getColor8A = ColorRGB24_mt.__index.getColor8A
 
 -- to ColorRGB16:
 function Color4L_mt.__index:getColorRGB16()
@@ -300,6 +329,7 @@ function ColorRGB24_mt.__index:getColorRGB16()
     return ColorRGB16(lshift(band(self.r, 0xF8), 8) + lshift(band(self.g, 0xFC), 3)  + rshift(self.b, 3))
 end
 ColorRGB32_mt.__index.getColorRGB16 = ColorRGB24_mt.__index.getColorRGB16
+ColorBGR32_mt.__index.getColorRGB16 = ColorRGB24_mt.__index.getColorRGB16
 
 -- to ColorRGB24:
 function Color4L_mt.__index:getColorRGB24()
@@ -317,6 +347,7 @@ function ColorRGB16_mt.__index:getColorRGB24()
 end
 function ColorRGB24_mt.__index:getColorRGB24() return self end
 function ColorRGB32_mt.__index:getColorRGB24() return ColorRGB24(self.r, self.g, self.b) end
+ColorBGR32_mt.__index.getColorRGB24 = ColorRGB32_mt.__index.getColorRGB24
 
 -- to ColorRGB32:
 function Color4L_mt.__index:getColorRGB32()
@@ -334,6 +365,25 @@ function ColorRGB16_mt.__index:getColorRGB32()
 end
 function ColorRGB24_mt.__index:getColorRGB32() return ColorRGB32(self.r, self.g, self.b) end
 function ColorRGB32_mt.__index:getColorRGB32() return self end
+function ColorBGR32_mt.__index:getColorRGB32() return ColorRGB32(self.r, self.g, self.b) end
+
+-- to ColorBGR32:
+function Color4L_mt.__index:getColorBGR32()
+    local v = self:getColor8()
+    return ColorBGR32(v.a, v.a, v.a, 0)
+end
+Color4U_mt.__index.getColorBGR32 = Color4L_mt.__index.getColorBGR32
+Color8_mt.__index.getColorBGR32 = Color4L_mt.__index.getColorBGR32
+Color8A_mt.__index.getColorBGR32 = Color4L_mt.__index.getColorBGR32
+function ColorRGB16_mt.__index:getColorBGR32()
+    local r = rshift(self.v, 11)
+    local g = band(rshift(self.v, 5), 0x3F)
+    local b = band(self.v, 0x001F)
+    return ColorBGR32(lshift(b, 3) + rshift(b, 2), lshift(g, 2) + rshift(g, 4), lshift(r, 3) + rshift(r, 2), 0)
+end
+function ColorRGB24_mt.__index:getColorBGR32() return ColorBGR32(self.r, self.g, self.b) end
+function ColorRGB32_mt.__index:getColorBGR32() return ColorBGR32(self.b, self.g, self.r) end
+function ColorBGR32_mt.__index:getColorBGR32() return self end
 
 -- RGB getters (special case for 4bpp mode)
 function Color4L_mt.__index:getR() return self:getColor8().a end
@@ -367,6 +417,10 @@ ColorRGB32_mt.__index.getR = ColorRGB24_mt.__index.getR
 ColorRGB32_mt.__index.getG = ColorRGB24_mt.__index.getG
 ColorRGB32_mt.__index.getB = ColorRGB24_mt.__index.getB
 function ColorRGB32_mt.__index:getAlpha() return self.a end
+ColorBGR32_mt.__index.getR = ColorRGB24_mt.__index.getR
+ColorBGR32_mt.__index.getG = ColorRGB24_mt.__index.getG
+ColorBGR32_mt.__index.getB = ColorRGB24_mt.__index.getB
+function ColorBGR32_mt.__index:getAlpha() return self.a end
 
 -- modifications:
 -- inversion:
@@ -380,6 +434,9 @@ function ColorRGB24_mt.__index:invert()
 end
 function ColorRGB32_mt.__index:invert()
     return ColorRGB32(bxor(self.r, 0xFF), bxor(self.g, 0xFF), bxor(self.b, 0xFF))
+end
+function ColorBGR32_mt.__index:invert()
+    return ColorBGR32(bxor(self.b, 0xFF), bxor(self.g, 0xFF), bxor(self.r, 0xFF))
 end
 
 -- comparison:
@@ -401,6 +458,7 @@ function ColorRGB32_mt.__index:isEqual(c)
     and (self:getB() == c:getB())
     and (self:getAlpha() == c:getAlpha())
 end
+ColorBGR32_mt.__index.isEqual = ColorRGB32_mt.__index.isEqual
 
 local MASK_ALLOCATED = 0x01
 local SHIFT_ALLOCATED = 0
@@ -417,6 +475,7 @@ local TYPE_BB8A = 2
 local TYPE_BBRGB16 = 3
 local TYPE_BBRGB24 = 4
 local TYPE_BBRGB32 = 5
+local TYPE_BBBGR32 = 6
 
 local BB = {}
 
@@ -427,6 +486,7 @@ local BB8A_mt = {__index={}}
 local BBRGB16_mt = {__index={}}
 local BBRGB24_mt = {__index={}}
 local BBRGB32_mt = {__index={}}
+local BBBGR32_mt = {__index={}}
 
 -- this is like a metatable for the others,
 -- but we don't make it a metatable because LuaJIT
@@ -476,6 +536,7 @@ function BB8A_mt.__index:getBpp() return 8 end
 function BBRGB16_mt.__index:getBpp() return 16 end
 function BBRGB24_mt.__index:getBpp() return 24 end
 function BBRGB32_mt.__index:getBpp() return 32 end
+function BBBGR32_mt.__index:getBpp() return 32 end
 function BB_mt.__index:isRGB()
     local bb_type = self:getType()
     if bb_type == TYPE_BBRGB16
@@ -544,6 +605,7 @@ function BB8A_mt.__index.getMyColor(color) return color:getColor8A() end
 function BBRGB16_mt.__index.getMyColor(color) return color:getColorRGB16() end
 function BBRGB24_mt.__index.getMyColor(color) return color:getColorRGB24() end
 function BBRGB32_mt.__index.getMyColor(color) return color:getColorRGB32() end
+function BBBGR32_mt.__index.getMyColor(color) return color:getColorBGR32() end
 
 -- set pixel values
 function BB_mt.__index:setPixel(x, y, color)
@@ -591,6 +653,7 @@ BB8A_mt.__index.blitfunc = "blitTo8A"
 BBRGB16_mt.__index.blitfunc = "blitToRGB16"
 BBRGB24_mt.__index.blitfunc = "blitToRGB24"
 BBRGB32_mt.__index.blitfunc = "blitToRGB32"
+BBBGR32_mt.__index.blitfunc = "blitToBGR32"
 
 --[[
 generic boundary check for copy operations
@@ -654,6 +717,7 @@ BB_mt.__index.blitTo8A = BB_mt.__index.blitDefault
 BB_mt.__index.blitToRGB16 = BB_mt.__index.blitDefault
 BB_mt.__index.blitToRGB24 = BB_mt.__index.blitDefault
 BB_mt.__index.blitToRGB32 = BB_mt.__index.blitDefault
+BB_mt.__index.blitToBGR32 = BB_mt.__index.blitDefault
 
 function BB_mt.__index:blitFrom(source, dest_x, dest_y, offs_x, offs_y, width, height, setter, set_param)
     width, height = width or source:getWidth(), height or source:getHeight()
@@ -1045,7 +1109,7 @@ function BB_mt.__index:paintRoundedCorner(off_x, off_y, w, h, bw, r, c)
             f:write("DEPTH 3\n", "MAXVAL 255\n", "TUPLTYPE RGB\n")
         elseif bb_type == TYPE_BBRGB24 then
             f:write("DEPTH 3\n", "MAXVAL 255\n", "TUPLTYPE RGB\n")
-        elseif bb_type == TYPE_BBRGB32 then
+        elseif bb_type == TYPE_BBRGB32 or bb_type == TYPE_BBBGR32 then
             f:write("DEPTH 4\n", "MAXVAL 255\n", "TUPLTYPE RGB_ALPHA\n")
         end
         f:write("ENDHDR\n")
@@ -1069,7 +1133,7 @@ function BB_mt.__index:paintRoundedCorner(off_x, off_y, w, h, bw, r, c)
                     ffi.C.fputc(v.r, f)
                     ffi.C.fputc(v.g, f)
                     ffi.C.fputc(v.b, f)
-                elseif bb_type == TYPE_BBRGB32 then
+                elseif bb_type == TYPE_BBRGB32 or bb_type == TYPE_BBBGR32 then
                     ffi.C.fputc(v.r, f)
                     ffi.C.fputc(v.g, f)
                     ffi.C.fputc(v.b, f)
@@ -1093,6 +1157,7 @@ function BB_mt.__index:paintRoundedCorner(off_x, off_y, w, h, bw, r, c)
         if not BBRGB16_mt.__index[name] then BBRGB16_mt.__index[name] = func end
         if not BBRGB24_mt.__index[name] then BBRGB24_mt.__index[name] = func end
         if not BBRGB32_mt.__index[name] then BBRGB32_mt.__index[name] = func end
+        if not BBBGR32_mt.__index[name] then BBBGR32_mt.__index[name] = func end
     end
 
     -- set metatables for the BlitBuffer types
@@ -1102,6 +1167,7 @@ function BB_mt.__index:paintRoundedCorner(off_x, off_y, w, h, bw, r, c)
     local BlitBufferRGB16 = ffi.metatype("BlitBufferRGB16", BBRGB16_mt)
     local BlitBufferRGB24 = ffi.metatype("BlitBufferRGB24", BBRGB24_mt)
     local BlitBufferRGB32 = ffi.metatype("BlitBufferRGB32", BBRGB32_mt)
+    local BlitBufferBGR32 = ffi.metatype("BlitBufferBGR32", BBBGR32_mt)
 
     -- set metatables for the Color types
     ffi.metatype("Color4L", Color4L_mt)
@@ -1111,6 +1177,7 @@ function BB_mt.__index:paintRoundedCorner(off_x, off_y, w, h, bw, r, c)
     ffi.metatype("ColorRGB16", ColorRGB16_mt)
     ffi.metatype("ColorRGB24", ColorRGB24_mt)
     ffi.metatype("ColorRGB32", ColorRGB32_mt)
+    ffi.metatype("ColorBGR32", ColorBGR32_mt)
 
     function BB.new(width, height, buffertype, dataptr, pitch)
         local bb = nil
@@ -1121,7 +1188,7 @@ function BB_mt.__index:paintRoundedCorner(off_x, off_y, w, h, bw, r, c)
             elseif buffertype == TYPE_BB8A then pitch = lshift(width, 1)
             elseif buffertype == TYPE_BBRGB16 then pitch = lshift(width, 1)
             elseif buffertype == TYPE_BBRGB24 then pitch = width * 3
-            elseif buffertype == TYPE_BBRGB32 then pitch = lshift(width, 2)
+            elseif buffertype == TYPE_BBRGB32 or buffertype == TYPE_BBBGR32 then pitch = lshift(width, 2)
             end
         end
         if buffertype == TYPE_BB4 then bb = BlitBuffer4(width, height, pitch, nil, 0)
@@ -1130,6 +1197,7 @@ function BB_mt.__index:paintRoundedCorner(off_x, off_y, w, h, bw, r, c)
         elseif buffertype == TYPE_BBRGB16 then bb = BlitBufferRGB16(width, height, pitch, nil, 0)
         elseif buffertype == TYPE_BBRGB24 then bb = BlitBufferRGB24(width, height, pitch, nil, 0)
         elseif buffertype == TYPE_BBRGB32 then bb = BlitBufferRGB32(width, height, pitch, nil, 0)
+        elseif buffertype == TYPE_BBBGR32 then bb = BlitBufferBGR32(width, height, pitch, nil, 0)
         else error("unknown blitbuffer type")
         end
         bb:setType(buffertype)
@@ -1165,6 +1233,7 @@ function BB_mt.__index:paintRoundedCorner(off_x, off_y, w, h, bw, r, c)
     BB.ColorRGB16 = ColorRGB16
     BB.ColorRGB24 = ColorRGB24
     BB.ColorRGB32 = ColorRGB32
+    BB.ColorBGR32 = ColorBGR32
 
     -- accessors for Blitbuffer types
     BB.BlitBuffer4 = BlitBuffer4
@@ -1173,11 +1242,13 @@ function BB_mt.__index:paintRoundedCorner(off_x, off_y, w, h, bw, r, c)
     BB.BlitBufferRGB16 = BlitBufferRGB16
     BB.BlitBufferRGB24 = BlitBufferRGB24
     BB.BlitBufferRGB32 = BlitBufferRGB32
+    BB.BlitBufferBGR32 = BlitBufferBGR32
     BB.TYPE_BB4 = TYPE_BB4
     BB.TYPE_BB8 = TYPE_BB8
     BB.TYPE_BB8A = TYPE_BB8A
     BB.TYPE_BBRGB16 = TYPE_BBRGB16
     BB.TYPE_BBRGB24 = TYPE_BBRGB24
     BB.TYPE_BBRGB32 = TYPE_BBRGB32
+    BB.TYPE_BBBGR32 = TYPE_BBBGR32
 
     return BB
