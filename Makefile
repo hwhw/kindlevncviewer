@@ -41,7 +41,7 @@ DISTRIBUTE=ffi config.lua keys.lua rfbkeys.lua vncviewer.lua \
 all: dist/kvncviewer-$(ARCH)-$(VERSION).zip
 
 $(LUAJIT):
-ifdef ARCH
+ifdef CROSS
 	$(MAKE) -C $(LUAJIT_DIR) HOST_CC=$(HOST_CC) CROSS=$(CROSS)
 else
 	$(MAKE) -C $(LUAJIT_DIR)
