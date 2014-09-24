@@ -65,6 +65,7 @@ LIBVNCCLIENT_CFLAGS=-fPIC -shared \
 
 $(LIBVNCCLIENT): $(LIBVNCCLIENT_SOURCES) $(LIBJPEG) $(ZLIB)
 	touch $(LIBVNCCLIENT_DIR)/../rfb/rfbconfig.h
+	echo '#include <stdint.h>' > $(LIBVNCCLIENT_DIR)/../rfb/rfbint.h
 	$(CC) $(LIBVNCCLIENT_CFLAGS) -o $@ $(LIBVNCCLIENT_SOURCES) $(ZLIB) $(LIBJPEG)
 
 $(LIBJPEG):
