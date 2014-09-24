@@ -1,5 +1,6 @@
+#!./luajit
 local ffi = require("ffi")
-local blitbuffer = require("ffi/blitbuffer_debug")
+local blitbuffer = require("ffi/blitbuffer")
 local fb = require("ffi/framebuffer").open("/dev/fb0")
 local evloop = require("ffi/eventloop")
 local input = require("ffi/input")
