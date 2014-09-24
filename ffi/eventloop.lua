@@ -195,8 +195,8 @@ function events.loop(timeout)
 					up_to.tv_sec = timer.tv.tv_sec
 					up_to.tv_usec = timer.tv.tv_usec
 				end
+				prev = timer
 			end
-			prev = timer
 			timer = timer.next
 		end
 
