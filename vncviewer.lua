@@ -55,6 +55,11 @@ function Quit()
 end
 
 local function do_refresh_full(w, h)
+	-- return false when full refresh is disabled
+	if refresh_full_every_256th_pxup == 0 then
+		return false
+	end
+	-- otherwise count number of pixels updated
 	refresh_full_ctr = refresh_full_ctr + w*h
 	if refresh_full_ctr >= bit.rshift(fb.bb:getWidth() * fb.bb:getHeight() * refresh_full_every_256th_pxup, 8) then
 		refresh_full_ctr = 0
@@ -197,6 +202,7 @@ Available options:
 -refreshFullAfterPixels <n>
    after updating <n> times the screen's pixels, a full eink
    refresh is issued. Default is 2.0
+   If you specify 0 here, it won't do a full refresh at all.
 
 -dither_bw
    dither to black/white (speeds up display on eink, but looks ugly)
