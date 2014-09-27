@@ -381,7 +381,7 @@ function ColorRGB16_mt.__index:getColorBGR32()
     local b = band(self.v, 0x001F)
     return ColorBGR32(lshift(b, 3) + rshift(b, 2), lshift(g, 2) + rshift(g, 4), lshift(r, 3) + rshift(r, 2), 0)
 end
-function ColorRGB24_mt.__index:getColorBGR32() return ColorBGR32(self.r, self.g, self.b) end
+function ColorRGB24_mt.__index:getColorBGR32() return ColorBGR32(self.b, self.g, self.r) end
 function ColorRGB32_mt.__index:getColorBGR32() return ColorBGR32(self.b, self.g, self.r) end
 function ColorBGR32_mt.__index:getColorBGR32() return self end
 
