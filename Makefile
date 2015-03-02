@@ -8,7 +8,7 @@ else
 STRIP?=strip
 ARCH=$(shell $(CC) -dumpmachine)
 endif
-CFLAGS?=""
+CFLAGS?="-D_GNU_SOURCE=1"
 
 VERSION=$(shell git describe HEAD)
 #VERSION=$(shell date +'%Y-%m-%d_%H-%m')
@@ -57,7 +57,7 @@ LIBVNCCLIENT_SOURCES=\
 	$(LIBVNCCLIENT_DIR)/tls_none.c \
 	$(LIBVNCCLIENT_DIR)/../common/minilzo.c
 
-LIBVNCCLIENT_CFLAGS=-fPIC -shared \
+LIBVNCCLIENT_CFLAGS=-D_GNU_SOURCE=1 -fPIC -shared \
 	-DLIBVNCSERVER_HAVE_LIBZ -DLIBVNCSERVER_HAVE_LIBJPEG \
 	-I$(LIBVNCCLIENT_DIR)/.. -I$(LIBVNCCLIENT_DIR)/../common/ -I$(LIBVNCCLIENT) \
 	-I$(ZLIB_DIR)/ -I$(LIBJPEG_DIR)/ \
