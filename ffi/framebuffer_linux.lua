@@ -24,7 +24,7 @@ local function einkfb_update(fb, refreshtype, waveform_mode, x, y, w, h)
 		refarea[0].which_fx = ffi.C.fx_update_full
 	end
 
-	ioctl(fb.fd, ffi.C.FBIO_EINK_UPDATE_DISPLAY_AREA, refarea);
+	return ffi.C.ioctl(fb.fd, ffi.C.FBIO_EINK_UPDATE_DISPLAY_AREA, refarea);
 end
 
 local function mxc_new_update_marker()
@@ -78,7 +78,7 @@ local function mxc_update(fb, refarea, refreshtype, waveform_mode, x, y, w, h)
 	refarea[0].alt_buffer_data.alt_update_region.left = 0
 	refarea[0].alt_buffer_data.alt_update_region.width = 0
 	refarea[0].alt_buffer_data.alt_update_region.height = 0
-	ffi.C.ioctl(fb.fd, ffi.C.MXCFB_SEND_UPDATE, refarea)
+	return ffi.C.ioctl(fb.fd, ffi.C.MXCFB_SEND_UPDATE, refarea)
 end
 
 -- Kindle's MXCFB_WAIT_FOR_UPDATE_SUBMISSION == 0x40044637
