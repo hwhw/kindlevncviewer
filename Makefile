@@ -42,6 +42,7 @@ all: dist/kvncviewer-$(ARCH)-$(VERSION).zip
 
 $(LUAJIT):
 ifdef CROSS
+	sed -i -e "s/CC= gcc/CC= gcc -D_GNU_SOURCE=1/" $(LUAJIT_DIR)/src/Makefile
 	$(MAKE) -C $(LUAJIT_DIR) HOST_CC=$(HOST_CC) CROSS=$(CROSS)
 else
 	$(MAKE) -C $(LUAJIT_DIR)
