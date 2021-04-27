@@ -1,6 +1,6 @@
 [submodule "libvncserver"]
 	path = libvncserver
-	url = git://git.code.sf.net/p/libvncserver/code
+	url = https://github.com/LibVNC/libvncserver.git
 [submodule "luajit-2.0"]
 	path = luajit-2.0
 	url = http://luajit.org/git/luajit-2.0.git
