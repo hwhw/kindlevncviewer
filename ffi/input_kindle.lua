@@ -33,7 +33,7 @@ function input.open(device)
 	if fd == -1 then
 		error("cannot open device " .. device .. ", error " .. ffi.errno())
 	end
-	ffi.C.ioctl(fd, ffi.C.EVIOCGRAB, 1)
+	ffi.C.ioctl(fd, ffi.C.EVIOCGRAB, ffi.new("uint64_t", 1))
 	evloop.register_fd(fd, input)
 end
 
